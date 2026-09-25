@@ -19,12 +19,21 @@ assert os.path.exists(args.unreal_engine_dir)
 
 if __name__ == "__main__":
 
+    env = os.environ.copy()
+
     if sys.platform == "win32":
         unreal_editor_python_bin = os.path.realpath(os.path.join(args.unreal_engine_dir, "Engine", "Binaries", "ThirdParty", "Python3", "Win64", "python.exe"))
     elif sys.platform == "darwin":
         unreal_editor_python_bin = os.path.realpath(os.path.join(args.unreal_engine_dir, "Engine", "Binaries", "ThirdParty", "Python3", "Mac", "bin", "python3"))
     elif sys.platform == "linux":
         unreal_editor_python_bin = os.path.realpath(os.path.join(args.unreal_engine_dir, "Engine", "Binaries", "ThirdParty", "Python3", "Linux", "bin", "python3"))
+
+        # on Linux, the Python interpreter bundled in Engine/Binaries doesn't ship its own Python.h, so
+        # point the compiler at the headers that ship instead in Engine/Source, so packages with C
+        # extensions (e.g., psutil) can build against this interpreter
+        linux_python_include_dir = os.path.realpath(os.path.join(args.unreal_engine_dir, "Engine", "Source", "ThirdParty", "Python3", "Linux", "include"))
+        assert os.path.exists(linux_python_include_dir)
+        env["CPATH"] = linux_python_include_dir + os.pathsep + env.get("CPATH", "")
     else:
         assert False
 
@@ -37,6 +46,6 @@ if __name__ == "__main__":
         # disable WARNING: the script X is installed in path 'path/to/UE_5.2/Engine/Binaries/ThirdParty/Python3/...', which is not on PATH.
         cmd = [unreal_editor_python_bin, "-m", "pip", "install", "--disable-pip-version-check", "--no-warn-script-location", "-e", python_package_dir]
         spear.log("Executing: ", " ".join(cmd))
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, env=env, check=True)
 
     spear.log("Done.")

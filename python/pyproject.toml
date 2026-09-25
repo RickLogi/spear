@@ -34,6 +34,7 @@ editor = [
 examples = [
     "imageio-ffmpeg==0.6.0",
     "jupyterlab==4.5.10",
+    "pillow==11.0.0",            # render_image_hypersim/run.py
     "wget==3.2"]
 pipeline = [
     "coacd==1.0.0",

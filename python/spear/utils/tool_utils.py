@@ -125,7 +125,17 @@ def _run_and_watch_log_file(cmd):
     thread = threading.Thread(target=_watch_log_file, kwargs={"state": state}, daemon=True)
     thread.start()
 
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    env = os.environ.copy()
+    if sys.platform in ["darwin", "linux"]:
+        # RunUAT.sh and Build.sh invoke "env VAR=val cmd args..." to set environment variables for
+        # their child process. Some systems have a "~/.local/bin/env" shell script (e.g., installed by
+        # uv) that is only intended to be sourced to update PATH, and shadows the real coreutils/BSD
+        # "env" binary if "~/.local/bin" appears before "/usr/bin" on PATH. That shim doesn't implement
+        # the "env VAR=val cmd args..." calling convention, so it silently no-ops instead of running
+        # the intended command. We prepend "/usr/bin" here to make sure the real "env" is found first.
+        env["PATH"] = "/usr/bin:" + env.get("PATH", "")
+
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env)
     for line in process.stdout:
         line = line.rstrip("\n")
         spear.log_no_prefix(line)

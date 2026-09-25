@@ -81,6 +81,12 @@ conda install -c conda-forge git
 pip install cmake
 ```
 
+If you're using `uv` instead of Anaconda, `uv` doesn't manage system tools like Git, so install Git and CMake via your system's package manager, e.g., on Linux,
+
+```console
+sudo apt-get install git cmake
+```
+
 ## Clone this repository including submodules
 
 The next step is to clone this repository including submodules. We have found that the _recurse submodules_ features in some Git applications don't always download submodules as expected. We therefore recommend using the following commands.
@@ -106,7 +112,23 @@ sudo apt-get install gcc
 pip install -e python
 ```
 
+If you're using `uv` instead of Anaconda, the equivalent steps are as follows.
+
+```console
+# create environment
+uv venv --python 3.11 .venv
+source .venv/bin/activate
+
+# install gcc (Linux only)
+sudo apt-get install gcc
+
+# install the spear Python package
+uv pip install -e python
+```
+
 If you're developing on Linux, you will need to install `gcc` if it isn't already installed on your system. `gcc` is required when installing one of our Python dependencies via `pip`.
+
+Our command-line tools that need to know which Python environment to use (e.g., `tools/install_python_extension.py`) look for an active virtual environment via the `VIRTUAL_ENV` environment variable, which `uv venv`/`source .venv/bin/activate` sets automatically. So as long as you `source .venv/bin/activate` in your terminal before running our tools, no further configuration is needed.
 
 The Unreal Editor has its own Python environment, so you will need to install the `spear` Python package into the Unreal Editor's Python environment in a separate step. We provide a command-line tool for this purpose.
 

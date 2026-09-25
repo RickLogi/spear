@@ -28,6 +28,8 @@ if __name__ == "__main__":
     # define build variables
     #
 
+    pip_cmd = "pip"
+
     if sys.platform == "win32":
 
         assert args.cxx_compiler is None
@@ -69,29 +71,40 @@ if __name__ == "__main__":
         cmake_cxx_flags = common_cxx_flags
         cmake_cxx_standard_libraries = ""
 
-        if args.conda_script:
-            if os.path.exists(args.conda_script):
-                spear.log("Found conda script at: ", args.conda_script)
-                conda_script = args.conda_script
-            assert conda_script is not None
+        if os.environ.get("VIRTUAL_ENV"):
+            # a virtual environment (e.g., uv or venv) is already active, so PATH already points at the right
+            # Python/pip and there is no need to activate a conda environment
+            cmd_prefix = "MACOSX_DEPLOYMENT_TARGET=11.0 "
+
+            # uv-created virtual environments don't ship a pip executable by default, so use "uv pip"
+            # instead, which installs into the active virtual environment without requiring pip
+            if shutil.which("uv"):
+                pip_cmd = "uv pip"
 
         else:
-            # see https://docs.anaconda.com/anaconda/user-guide/faq
-            conda_script_candidates = [
-                os.path.expanduser(os.path.join("~", "anaconda3", "etc", "profile.d", "conda.sh")),  # anaconda shell install
-                os.path.join(os.sep, "opt", "anaconda3", "etc", "profile.d", "conda.sh"),            # anaconda graphical install
-                os.path.expanduser(os.path.join("~", "miniconda3", "etc", "profile.d", "conda.sh")), # miniconda shell install
-                os.path.join(os.sep, "opt", "miniconda3", "etc", "profile.d", "conda.sh")]           # miniconda graphical install
+            if args.conda_script:
+                if os.path.exists(args.conda_script):
+                    spear.log("Found conda script at: ", args.conda_script)
+                    conda_script = args.conda_script
+                assert conda_script is not None
 
-            conda_script = None
-            for conda_script_candidate in conda_script_candidates:
-                if os.path.exists(conda_script_candidate):
-                    spear.log("Found conda script at: ", conda_script_candidate)
-                    conda_script = conda_script_candidate
-                    break
-            assert conda_script is not None
+            else:
+                # see https://docs.anaconda.com/anaconda/user-guide/faq
+                conda_script_candidates = [
+                    os.path.expanduser(os.path.join("~", "anaconda3", "etc", "profile.d", "conda.sh")),  # anaconda shell install
+                    os.path.join(os.sep, "opt", "anaconda3", "etc", "profile.d", "conda.sh"),            # anaconda graphical install
+                    os.path.expanduser(os.path.join("~", "miniconda3", "etc", "profile.d", "conda.sh")), # miniconda shell install
+                    os.path.join(os.sep, "opt", "miniconda3", "etc", "profile.d", "conda.sh")]           # miniconda graphical install
 
-        cmd_prefix = f". {conda_script}; conda activate {args.conda_env}; MACOSX_DEPLOYMENT_TARGET=11.0 "
+                conda_script = None
+                for conda_script_candidate in conda_script_candidates:
+                    if os.path.exists(conda_script_candidate):
+                        spear.log("Found conda script at: ", conda_script_candidate)
+                        conda_script = conda_script_candidate
+                        break
+                assert conda_script is not None
+
+            cmd_prefix = f". {conda_script}; conda activate {args.conda_env}; MACOSX_DEPLOYMENT_TARGET=11.0 "
 
     elif sys.platform == "linux":
 
@@ -134,27 +147,38 @@ if __name__ == "__main__":
         cmake_cxx_flags = common_cxx_flags
         cmake_cxx_standard_libraries = f"-L\'{linux_libcpp_lib_dir}\' -lc++ -lc++abi"
 
-        if args.conda_script:
-            if os.path.exists(args.conda_script):
-                spear.log("Found conda script at: ", args.conda_script)
-                conda_script = args.conda_script
-            assert conda_script is not None
+        if os.environ.get("VIRTUAL_ENV"):
+            # a virtual environment (e.g., uv or venv) is already active, so PATH already points at the right
+            # Python/pip and there is no need to activate a conda environment
+            cmd_prefix = ""
+
+            # uv-created virtual environments don't ship a pip executable by default, so use "uv pip"
+            # instead, which installs into the active virtual environment without requiring pip
+            if shutil.which("uv"):
+                pip_cmd = "uv pip"
 
         else:
-            # see https://docs.anaconda.com/anaconda/user-guide/faq
-            conda_script_candidates = [
-                os.path.expanduser(os.path.join("~", "anaconda3", "etc", "profile.d", "conda.sh")),
-                os.path.expanduser(os.path.join("~", "miniconda3", "etc", "profile.d", "conda.sh"))]
+            if args.conda_script:
+                if os.path.exists(args.conda_script):
+                    spear.log("Found conda script at: ", args.conda_script)
+                    conda_script = args.conda_script
+                assert conda_script is not None
 
-            conda_script = None
-            for conda_script_candidate in conda_script_candidates:
-                if os.path.exists(conda_script_candidate):
-                    spear.log("Found conda script at: ", conda_script_candidate)
-                    conda_script = conda_script_candidate
-                    break
-            assert conda_script is not None
+            else:
+                # see https://docs.anaconda.com/anaconda/user-guide/faq
+                conda_script_candidates = [
+                    os.path.expanduser(os.path.join("~", "anaconda3", "etc", "profile.d", "conda.sh")),
+                    os.path.expanduser(os.path.join("~", "miniconda3", "etc", "profile.d", "conda.sh"))]
 
-        cmd_prefix = f". {conda_script}; conda activate {args.conda_env}; "
+                conda_script = None
+                for conda_script_candidate in conda_script_candidates:
+                    if os.path.exists(conda_script_candidate):
+                        spear.log("Found conda script at: ", conda_script_candidate)
+                        conda_script = conda_script_candidate
+                        break
+                assert conda_script is not None
+
+            cmd_prefix = f". {conda_script}; conda activate {args.conda_env}; "
 
     else:
         assert False
@@ -168,10 +192,10 @@ if __name__ == "__main__":
 
     if args.wheel:
         spear.log("Building the spear_ext Python extension module...")
-        cmd_pip = f'pip wheel "{python_ext_dir}" -w "{build_dir}" '
+        cmd_pip = f'{pip_cmd} wheel "{python_ext_dir}" -w "{build_dir}" '
     else:
         spear.log("Building and installing the spear_ext Python extension module...")
-        cmd_pip = f'pip install -e "{python_ext_dir}" '
+        cmd_pip = f'{pip_cmd} install -e "{python_ext_dir}" '
 
     cmd = \
         cmd_prefix + cmd_pip + \
